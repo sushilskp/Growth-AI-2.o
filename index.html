@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth AI Dashboard</title>
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 50%, #0f1419 100%);
+            color: #e0e6ed;
+            overflow-x: hidden;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%),
+                              radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 250px;
+            background: rgba(15, 20, 25, 0.9);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px 16px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .sidebar.collapsed {
+            transform: translateX(-250px);
+        }
+        .sidebar .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        .sidebar .menu {
+            list-style: none;
+        }
+        .sidebar .menu li {
+            margin-bottom: 8px;
+        }
+        .sidebar .menu a {
+            display: block;
+            padding: 12px 16px;
+            color: #e0e6ed;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        .sidebar .menu a:hover, .sidebar .menu a.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            margin-right: 300px;
+            padding: 24px;
+            transition: margin 0.3s ease;
+        }
+        .main-content.expanded {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .right-panel {
+            width: 300px;
+            background: rgba(15, 20, 25, 0.9);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px 16px;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 50;
+            transition: transform 0.3s ease;
+        }
+        .right-panel.collapsed {
+            transform: translateX(300px);
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+        }
+        .input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #e0e6ed;
+            font-size: 14px;
+        }
+        .input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+        .message {
+            margin-bottom: 12px;
+            padding: 12px;
+            border-radius: 12px;
+        }
+        .message.user {
+            background: rgba(59, 130, 246, 0.2);
+            text-align: right;
+        }
+        .message.bot {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .quick-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .prompt-chip {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .prompt-chip:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .task-item.completed {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+        .post-item {
+            margin-bottom: 16px;
+        }
+        .post-content {
+            margin-bottom: 8px;
+        }
+        .post-actions {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+        }
+        .news-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .news-item:last-child {
+            border-bottom: none;
+        }
+        .mobile-toggle {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 101;
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .mobile-right-toggle {
+            display: none;
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 101;
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-250px);
+            }
+            .sidebar.collapsed {
+                transform: translateX(0);
+            }
+            .right-panel {
+                transform: translateX(300px);
+            }
+            .right-panel.collapsed {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                margin-right: 0;
+            }
+            .mobile-toggle, .mobile-right-toggle {
+                display: block;
+            }
+        }
+        .auth-form {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        .auth-form h2 {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .auth-form .form-group {
+            margin-bottom: 16px;
+        }
+        .auth-form label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        .auth-form .btn {
+            width: 100%;
+        }
+        .profile-pic {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 16px;
+        }
+        .interests {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .interest-chip {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .interest-chip.selected {
+            background: rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="logo">Growth AI</div>
+            <ul class="menu">
+                <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+                <li><a href="#" data-page="tasks">Tasks</a></li>
+                <li><a href="#" data-page="community">Community</a></li>
+                <li><a href="#" data-page="profile">Profile</a></li>
+                <li><a href="#" data-page="settings">Settings</a></li>
+                <li><a href="#" data-page="logout">Logout</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <!-- Auth Pages -->
+            <div id="login-page" class="page active">
+                <div class="auth-form">
+                    <h2>Login</h2>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="login-email">Email</label>
+                            <input type="email" id="login-email" class="input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" class="input" required>
+                        </div>
+                        <button type="submit" class="btn">Login</button>
+                    </form>
+                    <p style="text-align: center; margin-top: 16px;">Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+                </div>
+            </div>
+
+            <div id="signup-page" class="page">
+                <div class="auth-form">
+                    <h2>Sign Up</h2>
+                    <form id="signup-form">
+                        <div class="form-group">
+                            <label for="signup-name">Name</label>
+                            <input type="text" id="signup-name" class="input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signup-email">Email</label>
+                            <input type="email" id="signup-email" class="input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signup-password">Password</label>
+                            <input type="password" id="signup-password" class="input" required>
+                        </div>
+                        <button type="submit" class="btn">Sign Up</button>
+                    </form>
+                    <p style="text-align: center; margin-top: 16px;">Already have an account? <a href="#" id="show-login">Login</a></p>
+                </div>
+            </div>
+
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page">
+                <header style="margin-bottom: 24px;">
+                    <h1>Make Things Simple!</h1>
+                    <p>Plan your startup journey with AI-powered insights</p>
+                </header>
+                <div class="card">
+                    <h3>AI Chatbot</h3>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="quick-prompts">
+                        <div class="prompt-chip" data-prompt="Startup idea">Startup idea</div>
+                        <div class="prompt-chip" data-prompt="Marketing plan">Marketing plan</div>
+                        <div class="prompt-chip" data-prompt="Pricing">Pricing</div>
+                        <div class="prompt-chip" data-prompt="Pitch deck">Pitch deck</div>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="chat-input" class="input" placeholder="Type your message..." style="flex: 1;">
+                        <button id="upload-btn" class="btn" style="padding: 12px;">📎</button>
+                        <button id="send-btn" class="btn">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks Page -->
+            <div id="tasks-page" class="page">
+                <header style="margin-bottom: 24px;">
+                    <h1>Tasks</h1>
+                    <p>Manage your startup tasks</p>
+                </header>
+                <div class="card">
+                    <h3>Add Task</h3>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="task-title" class="input" placeholder="Task title" style="flex: 1;">
+                        <select id="task-priority" class="input" style="width: 120px;">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                        <input type="date" id="task-due" class="input" style="width: 140px;">
+                        <button id="add-task-btn" class="btn">Add</button>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <button class="btn" data-filter="all">All</button>
+                        <button class="btn" data-filter="active">Active</button>
+                        <button class="btn" data-filter="done">Done</button>
+                    </div>
+                    <div id="tasks-list"></div>
+                </div>
+            </div>
+
+            <!-- Community Page -->
+            <div id="community-page" class="page">
+                <header style="margin-bottom: 24px;">
+                    <h1>Community</h1>
+                    <p>Connect with fellow entrepreneurs</p>
+                </header>
+                <div class="card">
+                    <h3>Share your thoughts</h3>
+                    <textarea id="post-content" class="input" rows="3" placeholder="What's on your mind?"></textarea>
+                    <input type="text" id="post-tags" class="input" placeholder="Tags (comma separated)" style="margin-top: 8px;">
+                    <button id="post-btn" class="btn" style="margin-top: 8px;">Post</button>
+                </div>
+                <div class="card">
+                    <h3>Feed</h3>
+                    <div style="margin-bottom: 16px;">
+                        <button class="btn" data-sort="latest">Latest</button>
+                        <button class="btn" data-sort="popular">Popular</button>
+                    </div>
+                    <div id="posts-list"></div>
+                </div>
+            </div>
+
+            <!-- Profile Page -->
+            <div id="profile-page" class="page">
+                <header style="margin-bottom: 24px;">
+                    <h1>Profile</h1>
+                    <p>Update your information</p>
+                </header>
+                <div class="card">
+                    <img id="profile-pic" class="profile-pic" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjMUIyMDI5Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCA3NWMwLTE1IDEyLTI3IDI3LTI3czI3IDEyIDI3IDI3djE1SDIwVjc1eiIgZmlsbD0iI0YzQzQzQyIvPgo8L3N2Zz4K" alt="Profile Picture">
+                    <input type="file" id="pic-upload" accept="image/*" style="margin-bottom: 16px;">
+                    <div class="form-group">
+                        <label for="profile-name">Name</label>
+                        <input type="text" id="profile-name" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-bio">Bio</label>
+                        <textarea id="profile-bio" class="input" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Startup Interests</label>
+                        <div class="interests">
+                            <div class="interest-chip" data-interest="tech">Tech</div>
+                            <div class="interest-chip" data-interest="finance">Finance</div>
+                            <div class="interest-chip" data-interest="healthcare">Healthcare</div>
+                            <div class="interest-chip" data-interest="education">Education</div>
+                            <div class="interest-chip" data-interest="ecommerce">E-commerce</div>
+                        </div>
+                    </div>
+                    <button id="save-profile-btn" class="btn">Save Profile</button>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settings-page" class="page">
+                <header style="margin-bottom: 24px;">
+                    <h1>Settings</h1>
+                    <p>Customize your experience</p>
+                </header>
+                <div class="card">
+                    <p>Settings options will be added here.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel" id="right-panel">
+            <div class="card">
+                <h3>Today Note</h3>
+                <textarea id="today-note" class="input" rows="4" placeholder="Jot down your thoughts..."></textarea>
+            </div>
+            <div class="card">
+                <h3>My Files</h3>
+                <div id="files-list">
+                    <p>No files uploaded yet.</p>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Activity</h3>
+                <div style="margin-bottom: 8px;">Tasks Completed: <span id="tasks-completed">0</span>/10</div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                    <div id="progress-bar" style="width: 0%; height: 100%; background: #3b82f6; border-radius: 4px; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Business News</h3>
+                <div style="margin-bottom: 16px;">
+                    <select id="news-category" class="input">
+                        <option value="all">All</option>
+                        <option value="funding">Funding</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="tech">Tech</option>
+                        <option value="india">India</option>
+                        <option value="local">Local</option>
+                    </select>
+                    <button id="refresh-news" class="btn" style="margin-left: 8px;">Refresh</button>
+                </div>
+                <div id="news-list"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Mobile Toggles -->
+    <button class="mobile-toggle" id="mobile-toggle">☰</button>
+    <button class="mobile-right-toggle" id="mobile-right-toggle">📱</button>
+
+    <script>
+        // Global Variables
+        let currentUser = null;
+        let currentPage = 'login';
+        let tasks = [];
+        let posts = [];
+        let profile = {};
+        let chatMessages = [];
+        let newsItems = [
+            { title: 'Startup Raises $10M in Series A', category: 'funding', content: 'A promising AI startup secures funding...' },
+            { title: 'New Marketing Trends for 2024', category: 'marketing', content: 'Experts share insights on emerging strategies...' },
+            { title: 'Tech Innovation in Healthcare', category: 'tech', content: 'Breakthrough technologies transforming medicine...' },
+            { title: 'Indian Startup Ecosystem Growth', category: 'india', content: 'Rapid expansion in the Indian market...' },
+            { title: 'Local Business Spotlight', category: 'local', content: 'Highlighting successful local entrepreneurs...' }
+        ];
+
+        // DOM Elements
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const rightPanel = document.getElementById('right-panel');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileRightToggle = document.getElementById('mobile-right-toggle');
+
+        // Initialize App
+        function init() {
+            loadSession();
+            setupEventListeners();
+            renderNews();
+            if (currentUser) {
+                showPage('dashboard');
+            } else {
+                showPage('login');
+            }
+        }
+
+        // Load Session
+        function loadSession() {
+            const sessionUser = localStorage.getItem('sessionUser');
+            if (sessionUser) {
+                currentUser = JSON.parse(sessionUser);
+                loadUserData();
+            }
+        }
+
+        // Load User Data
+        function loadUserData() {
+            tasks = JSON.parse(localStorage.getItem(`tasks_${currentUser.email}`) || '[]');
+            posts = JSON.parse(localStorage.getItem(`posts_${currentUser.email}`) || '[]');
+            profile = JSON.parse(localStorage.getItem(`profile_${currentUser.email}`) || '{}');
+            chatMessages = JSON.parse(localStorage.getItem(`chat_${currentUser.email}`) || '[]');
+            renderTasks();
+            renderPosts();
+            renderProfile();
+            renderChat();
+            updateActivity();
+        }
+
+        // Save User Data
+        function saveUserData() {
+            localStorage.setItem(`tasks_${currentUser.email}`, JSON.stringify(tasks));
+            localStorage.setItem(`posts_${currentUser.email}`, JSON.stringify(posts));
+            localStorage.setItem(`profile_${currentUser.email}`, JSON.stringify(profile));
+            localStorage.setItem(`chat_${currentUser.email}`, JSON.stringify(chatMessages));
+        }
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // Menu Navigation
+            document.querySelectorAll('.menu a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = e.target.dataset.page;
+                    if (page === 'logout') {
+                        logout();
+                    } else {
+                        showPage(page);
+                    }
+                });
+            });
+
+            // Auth Forms
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('signup-form').addEventListener('submit', handleSignup);
+            document.getElementById('show-signup').addEventListener('click', () => showPage('signup'));
+            document.getElementById('show-login').addEventListener('click', () => showPage('login'));
+
+            // Chat
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            document.querySelectorAll('.prompt-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.getElementById('chat-input').value = chip.dataset.prompt;
+                    sendMessage();
+                });
+            });
+            document.getElementById('upload-btn').addEventListener('click', () => {
+                // Placeholder for file upload
+                alert('File upload feature (UI only)');
+            });
+
+            // Tasks
+            document.getElementById('add-task-btn').addEventListener('click', addTask);
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.addEventListener('click', (e) => filterTasks(e.target.dataset.filter));
+            });
+
+            // Community
+            document.getElementById('post-btn').addEventListener('click', addPost);
+            document.querySelectorAll('[data-sort]').forEach(btn => {
+                btn.addEventListener('click', (e) => sortPosts(e.target.dataset.sort));
+            });
+
+            // Profile
+            document.getElementById('pic-upload').addEventListener('change', handlePicUpload);
+            document.getElementById('save-profile-btn').addEventListener('click', saveProfile);
+            document.querySelectorAll('.interest-chip').forEach(chip => {
+                chip.addEventListener('click', () => chip.classList.toggle('selected'));
+            });
+
+            // Right Panel
+            document.getElementById('today-note').addEventListener('input', () => {
+                localStorage.setItem(`note_${currentUser.email}`, document.getElementById('today-note').value);
+            });
+            document.getElementById('refresh-news').addEventListener('click', renderNews);
+            document.getElementById('news-category').addEventListener('change', renderNews);
+
+            // Mobile Toggles
+            mobileToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+            });
+            mobileRightToggle.addEventListener('click', () => {
+                rightPanel.classList.toggle('collapsed');
+            });
+        }
+
+        // Show Page
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.menu a').forEach(a => a.classList.remove('active'));
+            document.getElementById(`${page}-page`).classList.add('active');
+            document.querySelector(`[data-page="${page}"]`).classList.add('active');
+            currentPage = page;
+            if (page !== 'login' && page !== 'signup') {
+                sidebar.style.display = 'block';
+                rightPanel.style.display = 'block';
+                mobileToggle.style.display = 'block';
+                mobileRightToggle.style.display = 'block';
+            } else {
+                sidebar.style.display = 'none';
+                rightPanel.style.display = 'none';
+                mobileToggle.style.display = 'none';
+                mobileRightToggle.style.display = 'none';
+            }
+        }
+
+        // Auth Functions
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email && u.password === password);
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('sessionUser', JSON.stringify(user));
+                loadUserData();
+                showPage('dashboard');
+            } else {
+                alert('Invalid credentials');
+            }
+        }
+
+        function handleSignup(e) {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            if (users.find(u => u.email === email)) {
+                alert('User already exists');
+                return;
+            }
+            const newUser = { name, email, password };
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            currentUser = newUser;
+            localStorage.setItem('sessionUser', JSON.stringify(newUser));
+            loadUserData();
+            showPage('dashboard');
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('sessionUser');
+            showPage('login');
+        }
+
+        // Chat Functions
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            chatMessages.push({ type: 'user', content: message });
+            input.value = '';
+            renderChat();
+            // Simulate bot response
+            setTimeout(() => {
+                const response = getBotResponse(message);
+                chatMessages.push({ type: 'bot', content: response });
+                renderChat();
+                saveUserData();
+            }, 1000);
+            saveUserData();
+        }
+
+        function getBotResponse(message) {
+            const responses = {
+                'startup idea': 'Here\'s a startup idea: An AI-powered platform for personalized learning paths in coding.',
+                'marketing plan': 'For your marketing plan: Focus on content marketing, social media engagement, and targeted ads.',
+                'pricing': 'Pricing strategy: Consider freemium model with premium features unlocked at $9.99/month.',
+                'pitch deck': 'Your pitch deck should include: Problem, Solution, Market Size, Team, Financials.'
+            };
+            return responses[message.toLowerCase()] || 'I\'m here to help with your startup journey. Ask me about ideas, plans, or strategies!';
+        }
+
+        function renderChat() {
+            const chatContainer = document.getElementById('chat-messages');
+            chatContainer.innerHTML = '';
+            chatMessages.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${msg.type}`;
+                msgDiv.textContent = msg.content;
+                chatContainer.appendChild(msgDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Tasks Functions
+        function addTask() {
+            const title = document.getElementById('task-title').value.trim();
+            const priority = document.getElementById('task-priority').value;
+            const due = document.getElementById('task-due').value;
+            if (!title) return;
+            tasks.push({ id: Date.now(), title, priority, due, completed: false });
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-due').value = '';
+            renderTasks();
+            saveUserData();
+            updateActivity();
+        }
+
+        function renderTasks(filter = 'all') {
+            const list = document.getElementById('tasks-list');
+            list.innerHTML = '';
+            let filteredTasks = tasks;
+            if (filter === 'active') filteredTasks = tasks.filter(t => !t.completed);
+            if (filter === 'done') filteredTasks = tasks.filter(t => t.completed);
+            filteredTasks.forEach(task => {
+                const item = document.createElement('div');
+                item.className = `task-item ${task.completed ? 'completed' : ''}`;
+                item.innerHTML = `
+                    <div>
+                        <strong>${task.title}</strong> (${task.priority}) - Due: ${task.due || 'No date'}
+                    </div>
+                    <div>
+                        <button onclick="toggleTask(${task.id})">${task.completed ? 'Undo' : 'Complete'}</button>
+                        <button onclick="deleteTask(${task.id})">Delete</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            task.completed = !task.completed;
+            renderTasks();
+            saveUserData();
+            updateActivity();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            renderTasks();
+            saveUserData();
+            updateActivity();
+        }
+
+        function filterTasks(filter) {
+            renderTasks(filter);
+        }
+
+        // Community Functions
+        function addPost() {
+            const content = document.getElementById('post-content').value.trim();
+            const tags = document.getElementById('post-tags').value.split(',').map(t => t.trim());
+            if (!content) return;
+            posts.push({ id: Date.now(), content, tags, likes: 0, comments: [], author: currentUser.name });
+            document.getElementById('post-content').value = '';
+            document.getElementById('post-tags').value = '';
+            renderPosts();
+            saveUserData();
+        }
+
+        function renderPosts(sort = 'latest') {
+            const list = document.getElementById('posts-list');
+            list.innerHTML = '';
+            let sortedPosts = [...posts];
+            if (sort === 'popular') sortedPosts.sort((a, b) => b.likes - a.likes);
+            sortedPosts.forEach(post => {
+                const item = document.createElement('div');
+                item.className = 'post-item';
+                item.innerHTML = `
+                    <div class="post-content">${post.content}</div>
+                    <div class="post-actions">
+                        <span>${post.author}</span>
+                        <span>${post.tags.join(', ')}</span>
+                        <button onclick="likePost(${post.id})">👍 ${post.likes}</button>
+                        <button onclick="commentPost(${post.id})">💬 ${post.comments.length}</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function likePost(id) {
+            const post = posts.find(p => p.id === id);
+            post.likes++;
+            renderPosts();
+            saveUserData();
+        }
+
+        function commentPost(id) {
+            const comment = prompt('Add a comment:');
+            if (comment) {
+                const post = posts.find(p => p.id === id);
+                post.comments.push(comment);
+                renderPosts();
+                saveUserData();
+            }
+        }
+
+        function sortPosts(sort) {
+            renderPosts(sort);
+        }
+
+        // Profile Functions
+        function handlePicUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    document.getElementById('profile-pic').src = reader.result;
+                    profile.pic = reader.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function saveProfile() {
+            profile.name = document.getElementById('profile-name').value;
+            profile.bio = document.getElementById('profile-bio').value;
+            profile.interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(chip => chip.dataset.interest);
+            saveUserData();
+            alert('Profile saved!');
+        }
+
+        function renderProfile() {
+            document.getElementById('profile-name').value = profile.name || currentUser.name;
+            document.getElementById('profile-bio').value = profile.bio || '';
+            if (profile.pic) document.getElementById('profile-pic').src = profile.pic;
+            document.querySelectorAll('.interest-chip').forEach(chip => {
+                if (profile.interests && profile.interests.includes(chip.dataset.interest)) {
+                    chip.classList.add('selected');
+                }
+            });
+            const note = localStorage.getItem(`note_${currentUser.email}`);
+            if (note) document.getElementById('today-note').value = note;
+        }
+
+        // News Functions
+        function renderNews() {
+            const category = document.getElementById('news-category').value;
+            const list = document.getElementById('news-list');
+            list.innerHTML = '';
+            const filteredNews = category === 'all' ? newsItems : newsItems.filter(n => n.category === category);
+            filteredNews.forEach(item => {
+                const newsDiv = document.createElement('div');
+                newsDiv.className = 'news-item';
+                newsDiv.innerHTML = `
+                    <h4>${item.title}</h4>
+                    <p>${item.content}</p>
+                `;
+                list.appendChild(newsDiv);
+            });
+        }
+
+        // Activity Update
+        function updateActivity() {
+            const completed = tasks.filter(t => t.completed).length;
+            document.getElementById('tasks-completed').textContent = completed;
+            document.getElementById('progress-bar').style.width = `${(completed / 10) * 100}%`;
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>
